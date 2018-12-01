@@ -1,3 +1,5 @@
+/* vim: set ft=c: */
+
 /** @file */
 
 #ifndef __SATC__
