@@ -26,6 +26,8 @@ explain when you are responsible for deallocating a particular object.
 Points are represented as arrays of doubles. I am considering allowing this to
 be easily changed, but for now, it should handle nearly any use case.
 
+Please feel free to file issues or pull requests.
+
 ## Usage
 
 Simply place the `satc.h` file somewhere in your header search path, and
