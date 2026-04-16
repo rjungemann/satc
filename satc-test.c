@@ -33,6 +33,17 @@ void satc_point_scale_xy_test () {
   satc_point_reflect(v, axis);
   satc_assert_near(satc_point_get_x(v), 3.0);
   satc_assert_near(satc_point_get_y(v), -4.0);
+
+  satc_point_set_xy(v, 3.0, 4.0);
+  satc_point_set_xy(axis, 0.0, 0.0);
+  satc_point_project(v, axis);
+  satc_assert_near(satc_point_get_x(v), 3.0);
+  satc_assert_near(satc_point_get_y(v), 4.0);
+
+  satc_point_set_xy(v, 3.0, 4.0);
+  satc_point_reflect(v, axis);
+  satc_assert_near(satc_point_get_x(v), 3.0);
+  satc_assert_near(satc_point_get_y(v), 4.0);
 }
 
 void satc_polygon_get_centroid_test () {
@@ -99,6 +110,18 @@ void satc_polygon_get_centroid_test () {
     assert(isfinite(satc_point_get_y(centroid)));
     satc_assert_near(satc_point_get_x(centroid), 1.0);
     satc_assert_near(satc_point_get_y(centroid), 1.0);
+    satc_point_destroy(centroid);
+    satc_polygon_destroy(polygon);
+  }
+
+  {
+    // Centroid of an empty polygon falls back to polygon position.
+    satc_point_alloca_xy(pos, 7.0, 8.0);
+    satc_point_array_alloca(points, 0);
+    satc_polygon_t *polygon = satc_polygon_create(pos, 0, points);
+    double *centroid = satc_polygon_get_centroid(polygon);
+    satc_assert_near(satc_point_get_x(centroid), 7.0);
+    satc_assert_near(satc_point_get_y(centroid), 8.0);
     satc_point_destroy(centroid);
     satc_polygon_destroy(polygon);
   }
@@ -204,6 +227,46 @@ void satc_collision_test () {
   }
 
   {
+    // Reusing a response object resets overlap and containment state.
+    satc_response_t *response = satc_response_create();
+
+    satc_point_alloca_xy(c1_pos, 0.0, 0.0);
+    satc_point_alloca_xy(c2_pos, 30.0, 0.0);
+    satc_circle_t *circle_1 = satc_circle_create(c1_pos, 20.0);
+    satc_circle_t *circle_2 = satc_circle_create(c2_pos, 20.0);
+    bool collided = satc_test_circle_circle(circle_1, circle_2, response);
+    assert(collided);
+    satc_assert_near(response->overlap, 10.0);
+    assert(!response->a_in_b);
+    assert(!response->b_in_a);
+
+    satc_point_alloca_xy(p_pos, 0.0, 0.0);
+    satc_point_array_alloca(points, 4);
+    satc_point_alloca_xy(a, 0.0, 0.0);
+    satc_point_alloca_xy(b, 100.0, 0.0);
+    satc_point_alloca_xy(c, 100.0, 100.0);
+    satc_point_alloca_xy(d, 0.0, 100.0);
+    points[0] = a;
+    points[1] = b;
+    points[2] = c;
+    points[3] = d;
+    satc_polygon_t *polygon = satc_polygon_create(p_pos, 4, points);
+    satc_point_alloca_xy(circle_pos, 50.0, 50.0);
+    satc_circle_t *circle = satc_circle_create(circle_pos, 10.0);
+    collided = satc_test_polygon_circle(polygon, circle, response);
+    assert(collided);
+    satc_assert_near(response->overlap, 60.0);
+    assert(!response->a_in_b);
+    assert(response->b_in_a);
+
+    satc_circle_destroy(circle);
+    satc_polygon_destroy(polygon);
+    satc_circle_destroy(circle_2);
+    satc_circle_destroy(circle_1);
+    satc_response_destroy(response);
+  }
+
+  {
     // Circle inside polygon flips containment flags.
     satc_point_alloca_xy(c_pos, 50.0, 50.0);
     satc_point_alloca_xy(p_pos, 0.0, 0.0);
@@ -247,6 +310,21 @@ void satc_collision_test () {
     assert(collided);
     satc_circle_destroy(circle);
     satc_polygon_destroy(polygon);
+  }
+
+  {
+    // Empty polygons do not collide with circles.
+    satc_point_alloca_xy(circle_pos, 0.0, 0.0);
+    satc_circle_t *circle = satc_circle_create(circle_pos, 10.0);
+    satc_point_alloca_xy(polygon_pos, 0.0, 0.0);
+    satc_point_array_alloca(points, 0);
+    satc_polygon_t *polygon = satc_polygon_create(polygon_pos, 0, points);
+    satc_response_t *response = satc_response_create();
+    bool collided = satc_test_polygon_circle(polygon, circle, response);
+    assert(!collided);
+    satc_circle_destroy(circle);
+    satc_polygon_destroy(polygon);
+    satc_response_destroy(response);
   }
 
   {
@@ -308,6 +386,23 @@ void satc_collision_test () {
     satc_polygon_destroy(polygon_1);
     satc_box_destroy(box_2);
     satc_box_destroy(box_1);
+  }
+
+  {
+    // Empty polygons do not collide with polygons.
+    satc_point_alloca_xy(pos_1, 0.0, 0.0);
+    satc_point_array_alloca(points, 0);
+    satc_polygon_t *polygon_1 = satc_polygon_create(pos_1, 0, points);
+    satc_point_alloca_xy(pos_2, 0.0, 0.0);
+    satc_box_t *box_2 = satc_box_create(pos_2, 20.0, 20.0);
+    satc_polygon_t *polygon_2 = satc_box_to_polygon(box_2);
+    satc_response_t *response = satc_response_create();
+    bool collided = satc_test_polygon_polygon(polygon_1, polygon_2, response);
+    assert(!collided);
+    satc_response_destroy(response);
+    satc_polygon_destroy(polygon_2);
+    satc_box_destroy(box_2);
+    satc_polygon_destroy(polygon_1);
   }
 }
 
@@ -407,6 +502,16 @@ void satc_point_test () {
     assert(test);
     satc_polygon_destroy(polygon);
   }
+
+  {
+    // Empty polygons do not contain points.
+    satc_point_alloca_xy(point, 0.0, 0.0);
+    satc_point_alloca_xy(polygon_pos, 0.0, 0.0);
+    satc_point_array_alloca(points, 0);
+    satc_polygon_t *polygon = satc_polygon_create(polygon_pos, 0, points);
+    assert(!satc_point_in_polygon(point, polygon));
+    satc_polygon_destroy(polygon);
+  }
 }
 
 void satc_polygon_transform_test () {
@@ -477,6 +582,20 @@ void satc_polygon_transform_test () {
     satc_polygon_t *aabb = satc_polygon_get_aabb(polygon);
     satc_assert_near(satc_point_get_x(aabb->pos), 1.0);
     satc_assert_near(satc_point_get_y(aabb->pos), 2.0);
+    satc_polygon_destroy(aabb);
+    satc_polygon_destroy(polygon);
+  }
+
+  {
+    // Empty polygon AABB is a zero-size box at polygon position.
+    satc_point_alloca_xy(pos, 7.0, 8.0);
+    satc_point_array_alloca(points, 0);
+    satc_polygon_t *polygon = satc_polygon_create(pos, 0, points);
+    satc_polygon_t *aabb = satc_polygon_get_aabb(polygon);
+    satc_assert_near(satc_point_get_x(aabb->pos), 7.0);
+    satc_assert_near(satc_point_get_y(aabb->pos), 8.0);
+    satc_assert_near(satc_point_get_x(aabb->points[2]), 0.0);
+    satc_assert_near(satc_point_get_y(aabb->points[2]), 0.0);
     satc_polygon_destroy(aabb);
     satc_polygon_destroy(polygon);
   }

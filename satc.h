@@ -498,7 +498,9 @@ double *satc_point_normalize (double *p) {
  * @return the projected point point.
  */
 double *satc_point_project (double *p, double *q) {
-  double amt = satc_point_dot(p, q) / satc_point_len2(q);
+  double len_2 = satc_point_len2(q);
+  if (len_2 <= DBL_EPSILON) return p;
+  double amt = satc_point_dot(p, q) / len_2;
   satc_point_set_xy(p, amt * satc_point_get_x(q), amt * satc_point_get_y(q));
   return p;
 }
@@ -514,6 +516,7 @@ double *satc_point_project (double *p, double *q) {
  * @return the projected point point.
  */
 double *satc_point_project_n (double *p, double *q) {
+  if (satc_point_len2(q) <= DBL_EPSILON) return p;
   double amt = satc_point_dot(p, q);
   satc_point_set_xy(p, amt * satc_point_get_x(q), amt * satc_point_get_y(q));
   return p;
@@ -968,6 +971,13 @@ satc_polygon_t *_satc_polygon_recalc (satc_polygon_t *polygon) {
  * @return a polygon representing the bounding box.
  */
 satc_polygon_t *satc_polygon_get_aabb (satc_polygon_t *polygon) {
+  if (polygon->num_calc_points == 0) {
+    satc_box_t *box = satc_box_create(polygon->pos, 0.0, 0.0);
+    satc_polygon_t *new_polygon = satc_box_to_polygon(box);
+    satc_box_destroy(box);
+    return new_polygon;
+  }
+
   double x_min = satc_point_get_x(polygon->calc_points[0]) + satc_point_get_x(polygon->pos);
   double y_min = satc_point_get_y(polygon->calc_points[0]) + satc_point_get_y(polygon->pos);
   double x_max = x_min;
@@ -1005,6 +1015,7 @@ satc_polygon_t *satc_polygon_get_aabb (satc_polygon_t *polygon) {
 double *satc_polygon_get_centroid (satc_polygon_t *polygon) {
   double **points = polygon->calc_points;
   size_t len = polygon->num_calc_points;
+  if (len == 0) return satc_point_clone(polygon->pos);
   double cx = 0.0;
   double cy = 0.0;
   double ar = 0.0;
@@ -1115,6 +1126,23 @@ satc_response_t *satc_response_create () {
   response->b = NULL;
   response->overlap_n = satc_point_create(0.0, 0.0);
   response->overlap_v = satc_point_create(0.0, 0.0);
+  response->overlap = DBL_MAX;
+  response->a_in_b = true;
+  response->b_in_a = true;
+  return response;
+}
+
+/**
+ * Resets a collision response so it can be reused safely.
+ *
+ * @param response the response to reset.
+ * @return the reset response.
+ */
+satc_response_t *satc_response_clear (satc_response_t *response) {
+  response->a = NULL;
+  response->b = NULL;
+  satc_point_set_xy(response->overlap_n, 0.0, 0.0);
+  satc_point_set_xy(response->overlap_v, 0.0, 0.0);
   response->overlap = DBL_MAX;
   response->a_in_b = true;
   response->b_in_a = true;
@@ -1307,6 +1335,8 @@ satc_polygon_t *_satc_test_point_create () {
  * @return true if point is inside of polygon, false otherwise.
  */
 bool satc_point_in_polygon (double *point, satc_polygon_t *polygon) {
+  if (polygon->num_calc_points == 0) return false;
+
   satc_polygon_t *test_point = _satc_test_point_create();
   satc_point_copy(test_point->pos, point);
   satc_response_t *response = satc_response_create();
@@ -1335,6 +1365,7 @@ bool satc_test_circle_circle (satc_circle_t *a, satc_circle_t *b, satc_response_
   double total_radius = a->r + b->r;
   double total_radius_sq = total_radius * total_radius;
   double distance_sq = satc_point_len2(difference_v);
+  if (response != NULL) satc_response_clear(response);
   if (distance_sq > total_radius_sq) return false;
   if (response != NULL) {
     double distance = sqrt(distance_sq);
@@ -1363,10 +1394,12 @@ bool satc_test_polygon_circle (satc_polygon_t *polygon, satc_circle_t *circle, s
   satc_point_alloca(circle_pos);
   satc_point_copy(circle_pos, circle->pos);
   satc_point_sub(circle_pos, polygon->pos);
+  if (response != NULL) satc_response_clear(response);
   double radius = circle->r;
   double radius2 = radius * radius;
   double **points = polygon->calc_points;
   size_t len = polygon->num_calc_points;
+  if (len == 0) return false;
   satc_point_alloca(edge);
   satc_point_alloca(point);
 
@@ -1491,6 +1524,9 @@ bool satc_test_polygon_polygon (satc_polygon_t *a, satc_polygon_t *b, satc_respo
   size_t a_len = a->num_calc_points;
   double **b_points = b->calc_points;
   size_t b_len = b->num_calc_points;
+
+  if (response != NULL) satc_response_clear(response);
+  if (a_len == 0 || b_len == 0) return false;
 
   size_t i = 0;
   for (; i < a_len; i++) {
