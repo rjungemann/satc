@@ -38,6 +38,13 @@ Simply place the `satc.h` file somewhere in your header search path, and
 
 To run the tests, from inside the `satc` directory, run `make test`.
 
+If you prefer CMake, you can also run `cmake -S . -B build` followed by
+`cmake --build build` and `ctest --test-dir build`.
+
+To install the optional CMake package metadata, run
+`cmake --install build --prefix /your/prefix`. Downstream CMake projects can
+then use `find_package(satc CONFIG REQUIRED)` and link against `satc::satc`.
+
 To generate the docs, from inside the `satc` directory, run `make docs`. The
 docs will be available at `html/index.html`.
 
