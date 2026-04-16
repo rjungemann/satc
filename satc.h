@@ -941,14 +941,14 @@ satc_polygon_t *_satc_polygon_recalc (satc_polygon_t *polygon) {
  * @return a polygon representing the bounding box.
  */
 satc_polygon_t *satc_polygon_get_aabb (satc_polygon_t *polygon) {
-  double x_min = satc_point_get_x(polygon->points[0]);
-  double y_min = satc_point_get_y(polygon->points[0]);
+  double x_min = satc_point_get_x(polygon->calc_points[0]) + satc_point_get_x(polygon->pos);
+  double y_min = satc_point_get_y(polygon->calc_points[0]) + satc_point_get_y(polygon->pos);
   double x_max = x_min;
   double y_max = y_min;
   size_t i = 1;
   for (; i < polygon->num_points; i++) {
-    double x = satc_point_get_x(polygon->points[i]);
-    double y = satc_point_get_y(polygon->points[i]);
+    double x = satc_point_get_x(polygon->calc_points[i]) + satc_point_get_x(polygon->pos);
+    double y = satc_point_get_y(polygon->calc_points[i]) + satc_point_get_y(polygon->pos);
     if (x < x_min) x_min = x;
     if (x > x_max) x_max = x;
     if (y < y_min) y_min = y;
