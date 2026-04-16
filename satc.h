@@ -470,7 +470,7 @@ void satc_point_destroy (double *point) {
 double *satc_point_rotate (double *p, double angle) {
   double x = satc_point_get_x(p);
   double y = satc_point_get_y(p);
-  satc_point_set_xy(p, x * cos(angle) - y * sin(angle), x * sin(angle) - y * cos(angle));
+  satc_point_set_xy(p, x * cos(angle) - y * sin(angle), x * sin(angle) + y * cos(angle));
   return p;
 }
 
@@ -881,7 +881,13 @@ satc_polygon_t *satc_polygon_rotate (satc_polygon_t *polygon, double angle) {
  */
 satc_polygon_t *satc_polygon_translate (satc_polygon_t *polygon, double x, double y) {
   size_t i = 0;
-  for (; i < polygon->num_points; i++) satc_point_set_xy(polygon->points[i], x, y);
+  for (; i < polygon->num_points; i++) {
+    satc_point_set_xy(
+      polygon->points[i],
+      satc_point_get_x(polygon->points[i]) + x,
+      satc_point_get_y(polygon->points[i]) + y
+    );
+  }
   _satc_polygon_recalc(polygon);
   return polygon;
 }
@@ -938,7 +944,7 @@ satc_polygon_t *satc_polygon_get_aabb (satc_polygon_t *polygon) {
   double x_min = satc_point_get_x(polygon->points[0]);
   double y_min = satc_point_get_y(polygon->points[0]);
   double x_max = x_min;
-  double y_max = x_max;
+  double y_max = y_min;
   size_t i = 1;
   for (; i < polygon->num_points; i++) {
     double x = satc_point_get_x(polygon->points[i]);
@@ -950,7 +956,7 @@ satc_polygon_t *satc_polygon_get_aabb (satc_polygon_t *polygon) {
   }
 
   satc_point_alloca(pos);
-  satc_point_set_xy(pos, satc_point_get_x(pos) + x_min, satc_point_get_y(pos) + y_min);
+  satc_point_set_xy(pos, x_min, y_min);
   satc_box_t *box = satc_box_create(pos, x_max - x_min, y_max - y_min);
   satc_polygon_t *new_polygon = satc_box_to_polygon(box);
   satc_box_destroy(box);

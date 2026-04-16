@@ -17,6 +17,11 @@ void satc_point_scale_xy_test () {
   satc_point_scale_xy(v, 1.0, 0.0);
   assert(satc_point_get_x(v) == 0.0);
   assert(satc_point_get_y(v) == 0.0);
+
+  satc_point_set_xy(v, 1.0, 1.0);
+  satc_point_rotate(v, M_PI / 4.0);
+  satc_assert_near(satc_point_get_x(v), 0.0);
+  satc_assert_near(satc_point_get_y(v), sqrt(2.0));
 }
 
 void satc_polygon_get_centroid_test () {
@@ -121,6 +126,22 @@ void satc_collision_test () {
   }
 
   {
+    // Circle-to-circle containment flags.
+    satc_point_alloca_xy(c1_pos, 0.0, 0.0);
+    satc_point_alloca_xy(c2_pos, 5.0, 0.0);
+    satc_circle_t *circle1 = satc_circle_create(c1_pos, 10.0);
+    satc_circle_t *circle2 = satc_circle_create(c2_pos, 30.0);
+    satc_response_t *response = satc_response_create();
+    bool collided = satc_test_circle_circle(circle1, circle2, response);
+    assert(collided);
+    assert(response->a_in_b);
+    assert(!response->b_in_a);
+    satc_response_destroy(response);
+    satc_circle_destroy(circle2);
+    satc_circle_destroy(circle1);
+  }
+
+  {
     // Polygon-to-circle collision.
     satc_point_alloca_xy(c_pos, 50.0, 50.0);
     satc_point_alloca_xy(p_pos, 0.0, 0.0);
@@ -141,6 +162,56 @@ void satc_collision_test () {
     assert(satc_nearest_hundredth(response->overlap) == 5.86);
     assert(satc_nearest_hundredth(satc_point_get_x(response->overlap_v)) == 4.14);
     assert(satc_nearest_hundredth(satc_point_get_y(response->overlap_v)) == 4.14);
+    satc_response_destroy(response);
+    satc_circle_destroy(circle);
+    satc_polygon_destroy(polygon);
+  }
+
+  {
+    // Polygon contains circle.
+    satc_point_alloca_xy(c_pos, 50.0, 50.0);
+    satc_point_alloca_xy(p_pos, 0.0, 0.0);
+    satc_point_array_alloca(points, 4);
+    satc_point_alloca_xy(a, 0.0, 0.0);
+    satc_point_alloca_xy(b, 100.0, 0.0);
+    satc_point_alloca_xy(c, 100.0, 100.0);
+    satc_point_alloca_xy(d, 0.0, 100.0);
+    points[0] = a;
+    points[1] = b;
+    points[2] = c;
+    points[3] = d;
+    satc_circle_t *circle = satc_circle_create(c_pos, 10.0);
+    satc_polygon_t *polygon = satc_polygon_create(p_pos, 4, points);
+    satc_response_t *response = satc_response_create();
+    bool collided = satc_test_polygon_circle(polygon, circle, response);
+    assert(collided);
+    assert(!response->a_in_b);
+    assert(response->b_in_a);
+    satc_response_destroy(response);
+    satc_circle_destroy(circle);
+    satc_polygon_destroy(polygon);
+  }
+
+  {
+    // Circle inside polygon flips containment flags.
+    satc_point_alloca_xy(c_pos, 50.0, 50.0);
+    satc_point_alloca_xy(p_pos, 0.0, 0.0);
+    satc_point_array_alloca(points, 4);
+    satc_point_alloca_xy(a, 0.0, 0.0);
+    satc_point_alloca_xy(b, 100.0, 0.0);
+    satc_point_alloca_xy(c, 100.0, 100.0);
+    satc_point_alloca_xy(d, 0.0, 100.0);
+    points[0] = a;
+    points[1] = b;
+    points[2] = c;
+    points[3] = d;
+    satc_circle_t *circle = satc_circle_create(c_pos, 10.0);
+    satc_polygon_t *polygon = satc_polygon_create(p_pos, 4, points);
+    satc_response_t *response = satc_response_create();
+    bool collided = satc_test_circle_polygon(circle, polygon, response);
+    assert(collided);
+    assert(response->a_in_b);
+    assert(!response->b_in_a);
     satc_response_destroy(response);
     satc_circle_destroy(circle);
     satc_polygon_destroy(polygon);
@@ -186,6 +257,26 @@ void satc_collision_test () {
     satc_polygon_destroy(polygon_1);
     satc_box_destroy(box_2);
     satc_box_destroy(box_1);
+  }
+
+  {
+    // Polygon-to-polygon containment flags.
+    satc_point_alloca_xy(pos_1, 20.0, 20.0);
+    satc_point_alloca_xy(pos_2, 0.0, 0.0);
+    satc_box_t *inner_box = satc_box_create(pos_1, 20.0, 20.0);
+    satc_polygon_t *inner_polygon = satc_box_to_polygon(inner_box);
+    satc_box_t *outer_box = satc_box_create(pos_2, 100.0, 100.0);
+    satc_polygon_t *outer_polygon = satc_box_to_polygon(outer_box);
+    satc_response_t *response = satc_response_create();
+    bool collided = satc_test_polygon_polygon(inner_polygon, outer_polygon, response);
+    assert(collided);
+    assert(response->a_in_b);
+    assert(!response->b_in_a);
+    satc_response_destroy(response);
+    satc_polygon_destroy(outer_polygon);
+    satc_polygon_destroy(inner_polygon);
+    satc_box_destroy(outer_box);
+    satc_box_destroy(inner_box);
   }
 
   {
@@ -285,10 +376,73 @@ void satc_point_test () {
   }
 }
 
+void satc_polygon_transform_test () {
+  {
+    // Polygon translation adds a delta to every point.
+    satc_point_alloca_xy(pos, 0.0, 0.0);
+    satc_point_array_alloca(points, 3);
+    satc_point_alloca_xy(a, 1.0, 2.0);
+    satc_point_alloca_xy(b, 3.0, 4.0);
+    satc_point_alloca_xy(c, 5.0, 6.0);
+    points[0] = a;
+    points[1] = b;
+    points[2] = c;
+    satc_polygon_t *polygon = satc_polygon_create(pos, 3, points);
+    satc_polygon_translate(polygon, 10.0, 20.0);
+    satc_assert_near(satc_point_get_x(polygon->points[0]), 11.0);
+    satc_assert_near(satc_point_get_y(polygon->points[0]), 22.0);
+    satc_assert_near(satc_point_get_x(polygon->points[1]), 13.0);
+    satc_assert_near(satc_point_get_y(polygon->points[1]), 24.0);
+    satc_assert_near(satc_point_get_x(polygon->points[2]), 15.0);
+    satc_assert_near(satc_point_get_y(polygon->points[2]), 26.0);
+    satc_polygon_destroy(polygon);
+  }
+
+  {
+    // AABB uses deterministic minima for its origin.
+    satc_point_alloca_xy(pos, 0.0, 0.0);
+    satc_point_array_alloca(points, 3);
+    satc_point_alloca_xy(a, 1.0, 2.0);
+    satc_point_alloca_xy(b, 4.0, 2.0);
+    satc_point_alloca_xy(c, 1.0, 5.0);
+    points[0] = a;
+    points[1] = b;
+    points[2] = c;
+    satc_polygon_t *polygon = satc_polygon_create(pos, 0 + 3, points);
+    satc_polygon_t *aabb = satc_polygon_get_aabb(polygon);
+    satc_assert_near(satc_point_get_x(aabb->pos), 1.0);
+    satc_assert_near(satc_point_get_y(aabb->pos), 2.0);
+    satc_polygon_destroy(aabb);
+    satc_polygon_destroy(polygon);
+  }
+
+  {
+    // Rotated polygons still participate correctly in point tests.
+    satc_point_alloca_xy(pos, 50.0, 50.0);
+    satc_point_array_alloca(points, 4);
+    satc_point_alloca_xy(a, -10.0, -10.0);
+    satc_point_alloca_xy(b, 10.0, -10.0);
+    satc_point_alloca_xy(c, 10.0, 10.0);
+    satc_point_alloca_xy(d, -10.0, 10.0);
+    points[0] = a;
+    points[1] = b;
+    points[2] = c;
+    points[3] = d;
+    satc_polygon_t *polygon = satc_polygon_create(pos, 4, points);
+    satc_polygon_set_angle(polygon, M_PI / 4.0);
+    satc_point_alloca_xy(point_inside, 50.0, 50.0);
+    satc_point_alloca_xy(point_outside, 80.0, 80.0);
+    assert(satc_point_in_polygon(point_inside, polygon));
+    assert(!satc_point_in_polygon(point_outside, polygon));
+    satc_polygon_destroy(polygon);
+  }
+}
+
 int main (int argc, char *argv[], char *envp[]) {
   satc_point_scale_xy_test();
   satc_polygon_get_centroid_test();
   satc_collision_test();
   satc_point_test();
+  satc_polygon_transform_test();
   return EXIT_SUCCESS;
 }

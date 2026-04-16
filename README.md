@@ -23,6 +23,9 @@ deallocated when they fall out of scope. Of course, any points, shapes, or
 collision response objects you create will have to be deallocated. The docs
 explain when you are responsible for deallocating a particular object.
 
+Degenerate polygons with zero area are handled, but their centroid is reported
+as the arithmetic mean of their points rather than an area-weighted center.
+
 Points are represented as arrays of doubles. I am considering allowing this to
 be easily changed, but for now, it should handle nearly any use case.
 
@@ -46,7 +49,7 @@ The following example illustrates polygon-to-circle collision:
 
 ```c
 // Generate a circle.
-double *c_pos = sc_point_alloca_xy(50.0, 50.0);
+satc_point_alloca_xy(c_pos, 50.0, 50.0);
 double c_radius = 20.0;
 satc_circle_t *circle = satc_circle_create(c_pos, c_radius);
 
