@@ -355,6 +355,28 @@ void satc_point_test () {
   }
 
   {
+    // Point in polygon respects polygon offset.
+    satc_point_alloca_xy(polygon_pos, 0.0, 0.0);
+    satc_point_array_alloca(points, 4);
+    satc_point_alloca_xy(a, -10.0, -10.0);
+    satc_point_alloca_xy(b, 10.0, -10.0);
+    satc_point_alloca_xy(c, 10.0, 10.0);
+    satc_point_alloca_xy(d, -10.0, 10.0);
+    points[0] = a;
+    points[1] = b;
+    points[2] = c;
+    points[3] = d;
+    satc_polygon_t *polygon = satc_polygon_create(polygon_pos, 4, points);
+    satc_point_alloca_xy(offset, 30.0, 0.0);
+    satc_polygon_set_offset(polygon, offset);
+    satc_point_alloca_xy(point_inside, 25.0, 0.0);
+    satc_point_alloca_xy(point_outside, 5.0, 0.0);
+    assert(satc_point_in_polygon(point_inside, polygon));
+    assert(!satc_point_in_polygon(point_outside, polygon));
+    satc_polygon_destroy(polygon);
+  }
+
+  {
     // Point in polygon (small)
 
     satc_point_alloca(point);
@@ -410,7 +432,7 @@ void satc_polygon_transform_test () {
   }
 
   {
-    // Polygon offset changes calculated points and collision separation.
+    // Polygon offset changes calculated points and polygon collision results.
     satc_point_alloca_xy(pos_1, 0.0, 0.0);
     satc_point_array_alloca(points_1, 4);
     satc_point_alloca_xy(a_1, -10.0, -10.0);
@@ -422,7 +444,7 @@ void satc_polygon_transform_test () {
     points_1[2] = c_1;
     points_1[3] = d_1;
     satc_polygon_t *polygon_1 = satc_polygon_create(pos_1, 4, points_1);
-    satc_point_alloca_xy(offset, 30.0, 0.0);
+    satc_point_alloca_xy(offset, 31.0, 0.0);
     satc_polygon_set_offset(polygon_1, offset);
 
     satc_point_alloca_xy(pos_2, 0.0, 0.0);
@@ -431,10 +453,9 @@ void satc_polygon_transform_test () {
 
     satc_response_t *response = satc_response_create();
     bool collided = satc_test_polygon_polygon(polygon_1, polygon_2, response);
-    assert(collided);
-    satc_assert_near(satc_point_get_x(polygon_1->calc_points[0]), 20.0);
+    assert(!collided);
+    satc_assert_near(satc_point_get_x(polygon_1->calc_points[0]), 21.0);
     satc_assert_near(satc_point_get_y(polygon_1->calc_points[0]), -10.0);
-    satc_assert_near(response->overlap, 10.0);
 
     satc_response_destroy(response);
     satc_polygon_destroy(polygon_2);

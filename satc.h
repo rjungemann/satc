@@ -658,12 +658,39 @@ void satc_polygon_destroy (satc_polygon_t *polygon) {
 
   free(polygon->points);
 
+  i = 0;
+  for (; i < polygon->num_calc_points; i++) {
+    satc_point_destroy(polygon->calc_points[i]);
+  }
+
+  free(polygon->calc_points);
+
+  i = 0;
+  for (; i < polygon->num_edges; i++) {
+    satc_point_destroy(polygon->edges[i]);
+  }
+
+  free(polygon->edges);
+
+  i = 0;
+  for (; i < polygon->num_normals; i++) {
+    satc_point_destroy(polygon->normals[i]);
+  }
+
+  free(polygon->normals);
+
   polygon->type = satc_type_none;
   polygon->pos = NULL;
-  polygon->num_points = -1;
+  polygon->num_points = 0;
   polygon->points = NULL;
   polygon->angle = 0.0;
   polygon->offset = NULL;
+  polygon->num_calc_points = 0;
+  polygon->calc_points = NULL;
+  polygon->num_edges = 0;
+  polygon->edges = NULL;
+  polygon->num_normals = 0;
+  polygon->normals = NULL;
   free(polygon);
 }
 
@@ -1460,10 +1487,10 @@ bool satc_test_circle_polygon (satc_circle_t *circle, satc_polygon_t *polygon, s
  * @param response the response object to set with collision data.
  */
 bool satc_test_polygon_polygon (satc_polygon_t *a, satc_polygon_t *b, satc_response_t *response) {
-  double **a_points = a->points;
-  size_t a_len = a->num_points;
-  double **b_points = b->points;
-  size_t b_len = b->num_points;
+  double **a_points = a->calc_points;
+  size_t a_len = a->num_calc_points;
+  double **b_points = b->calc_points;
+  size_t b_len = b->num_calc_points;
 
   size_t i = 0;
   for (; i < a_len; i++) {
