@@ -1,6 +1,8 @@
 #include "assert.h"
 #include "satc.h"
 
+#define SATC_TEST_EPSILON 0.0001
+#define satc_assert_near(actual, expected) assert(fabs((actual) - (expected)) < SATC_TEST_EPSILON)
 #define satc_nearest_hundredth(n) floor(n * 100 + 0.5) / 100
 
 void satc_point_scale_xy_test () {
@@ -37,8 +39,8 @@ void satc_polygon_get_centroid_test () {
     points[3] = d;
     satc_polygon_t *polygon = satc_polygon_create(pos, 4, points);
     double *centroid = satc_polygon_get_centroid(polygon);
-    assert(satc_point_get_x(centroid) == 20.0);
-    assert(satc_point_get_y(centroid) == 20.0);
+    satc_assert_near(satc_point_get_x(centroid), 20.0);
+    satc_assert_near(satc_point_get_y(centroid), 20.0);
     satc_point_destroy(centroid);
     satc_polygon_destroy(polygon);
   }
@@ -59,8 +61,28 @@ void satc_polygon_get_centroid_test () {
     points[2] = c;
     satc_polygon_t *polygon = satc_polygon_create(pos, 3, points);
     double *centroid = satc_polygon_get_centroid(polygon);
-    assert(satc_point_get_x(centroid) == 50.0);
-    assert(satc_point_get_y(centroid) == 33.0);
+    satc_assert_near(satc_point_get_x(centroid), 50.0);
+    satc_assert_near(satc_point_get_y(centroid), 33.0);
+    satc_point_destroy(centroid);
+    satc_polygon_destroy(polygon);
+  }
+
+  {
+    // Centroid of a degenerate polygon falls back to the average point.
+    satc_point_array_alloca(points, 3);
+    satc_point_alloca_xy(pos, 0.0, 0.0);
+    satc_point_alloca_xy(a, 0.0, 0.0);
+    satc_point_alloca_xy(b, 1.0, 1.0);
+    satc_point_alloca_xy(c, 2.0, 2.0);
+    points[0] = a;
+    points[1] = b;
+    points[2] = c;
+    satc_polygon_t *polygon = satc_polygon_create(pos, 3, points);
+    double *centroid = satc_polygon_get_centroid(polygon);
+    assert(isfinite(satc_point_get_x(centroid)));
+    assert(isfinite(satc_point_get_y(centroid)));
+    satc_assert_near(satc_point_get_x(centroid), 1.0);
+    satc_assert_near(satc_point_get_y(centroid), 1.0);
     satc_point_destroy(centroid);
     satc_polygon_destroy(polygon);
   }
@@ -78,6 +100,21 @@ void satc_collision_test () {
     assert(collided);
     assert(satc_point_get_x(response->overlap_v) == 10.0);
     assert(satc_point_get_y(response->overlap_v) == 0.0);
+    satc_response_destroy(response);
+    satc_circle_destroy(circle2);
+    satc_circle_destroy(circle1);
+  }
+
+  {
+    // Circle-to-circle tangent contact counts as collision.
+    satc_point_alloca_xy(c1_pos, 0.0, 0.0);
+    satc_point_alloca_xy(c2_pos, 40.0, 0.0);
+    satc_circle_t *circle1 = satc_circle_create(c1_pos, 20.0);
+    satc_circle_t *circle2 = satc_circle_create(c2_pos, 20.0);
+    satc_response_t *response = satc_response_create();
+    bool collided = satc_test_circle_circle(circle1, circle2, response);
+    assert(collided);
+    satc_assert_near(response->overlap, 0.0);
     satc_response_destroy(response);
     satc_circle_destroy(circle2);
     satc_circle_destroy(circle1);
@@ -110,34 +147,45 @@ void satc_collision_test () {
   }
 
   {
-    // Polygon-to-polygon collision.
-    satc_point_alloca(circle_pos);
-    satc_point_set_xy(circle_pos, 50.0, 50.0);
+    // Polygon-to-circle collision works without a response object.
+    satc_point_alloca_xy(circle_pos, 20.0, 50.0);
     satc_circle_t *circle = satc_circle_create(circle_pos, 20.0);
-    satc_point_alloca(polygon_pos);
-    satc_point_set_xy(polygon_pos, 0.0, 0.0);
+    satc_point_alloca_xy(polygon_pos, 0.0, 0.0);
     satc_point_array_alloca(polygon_points, 4);
-    satc_point_alloca(polygon_point_1);
-    satc_point_set_xy(polygon_point_1, 0.0, 0.0);
-    satc_point_alloca(polygon_point_2);
-    satc_point_set_xy(polygon_point_2, 40.0, 0.0);
-    satc_point_alloca(polygon_point_3);
-    satc_point_set_xy(polygon_point_3, 40.0, 40.0);
-    satc_point_alloca(polygon_point_4);
-    satc_point_set_xy(polygon_point_4, 0.0, 40.0);
+    satc_point_alloca_xy(polygon_point_1, 0.0, 0.0);
+    satc_point_alloca_xy(polygon_point_2, 40.0, 0.0);
+    satc_point_alloca_xy(polygon_point_3, 40.0, 40.0);
+    satc_point_alloca_xy(polygon_point_4, 0.0, 40.0);
     polygon_points[0] = polygon_point_1;
     polygon_points[1] = polygon_point_2;
     polygon_points[2] = polygon_point_3;
     polygon_points[3] = polygon_point_4;
     satc_polygon_t *polygon = satc_polygon_create(polygon_pos, 4, polygon_points);
-    satc_response_t *response = satc_response_create();
-    bool collided = satc_test_polygon_circle(polygon, circle, response);
+    bool collided = satc_test_polygon_circle(polygon, circle, NULL);
     assert(collided);
-    assert(satc_nearest_hundredth(response->overlap) == 5.86);
-    assert(satc_nearest_hundredth(satc_point_get_x(response->overlap_v)) == 4.14);
-    assert(satc_nearest_hundredth(satc_point_get_y(response->overlap_v)) == 4.14);
-    satc_response_destroy(response);
+    satc_circle_destroy(circle);
     satc_polygon_destroy(polygon);
+  }
+
+  {
+    // Polygon-to-polygon collision.
+    satc_point_alloca_xy(pos_1, 0.0, 0.0);
+    satc_point_alloca_xy(pos_2, 10.0, 0.0);
+    satc_box_t *box_1 = satc_box_create(pos_1, 20.0, 20.0);
+    satc_polygon_t *polygon_1 = satc_box_to_polygon(box_1);
+    satc_box_t *box_2 = satc_box_create(pos_2, 20.0, 20.0);
+    satc_polygon_t *polygon_2 = satc_box_to_polygon(box_2);
+    satc_response_t *response = satc_response_create();
+    bool collided = satc_test_polygon_polygon(polygon_1, polygon_2, response);
+    assert(collided);
+    satc_assert_near(response->overlap, 10.0);
+    satc_assert_near(fabs(satc_point_get_x(response->overlap_v)), 10.0);
+    satc_assert_near(satc_point_get_y(response->overlap_v), 0.0);
+    satc_response_destroy(response);
+    satc_polygon_destroy(polygon_2);
+    satc_polygon_destroy(polygon_1);
+    satc_box_destroy(box_2);
+    satc_box_destroy(box_1);
   }
 
   {

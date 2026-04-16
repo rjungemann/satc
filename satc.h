@@ -964,6 +964,9 @@ satc_polygon_t *satc_polygon_get_aabb (satc_polygon_t *polygon) {
  * You are responsible for deallocating the point.
  *
  * @param polygon the polygon whose centroid should be calculated.
+ * Degenerate polygons with zero area fall back to the arithmetic mean of
+ * their calculated points.
+ *
  * @return an array of doubles (a point) representing the centroid.
  */
 double *satc_polygon_get_centroid (satc_polygon_t *polygon) {
@@ -982,9 +985,23 @@ double *satc_polygon_get_centroid (satc_polygon_t *polygon) {
     ar += a;
   }
 
-  ar = ar * 3.0;
-  cx = cx / ar;
-  cy = cy / ar;
+  if (fabs(ar) <= DBL_EPSILON) {
+    cx = 0.0;
+    cy = 0.0;
+
+    i = 0;
+    for (; i < len; i++) {
+      cx += satc_point_get_x(points[i]);
+      cy += satc_point_get_y(points[i]);
+    }
+
+    cx = cx / len;
+    cy = cy / len;
+  } else {
+    ar = ar * 3.0;
+    cx = cx / ar;
+    cy = cy / ar;
+  }
 
   return satc_point_create(cx, cy);
 }
@@ -1381,7 +1398,7 @@ bool satc_test_polygon_circle (satc_polygon_t *polygon, satc_circle_t *circle, s
       } else {
         overlap_n = normal;
         overlap = radius - dist;
-        if (dist >= 0.0 || overlap < 2.0 * radius) {
+        if (response != NULL && (dist >= 0.0 || overlap < 2.0 * radius)) {
           response->b_in_a = false;
         }
       }
