@@ -22,6 +22,17 @@ void satc_point_scale_xy_test () {
   satc_point_rotate(v, M_PI / 4.0);
   satc_assert_near(satc_point_get_x(v), 0.0);
   satc_assert_near(satc_point_get_y(v), sqrt(2.0));
+
+  satc_point_set_xy(v, 3.0, 4.0);
+  satc_point_alloca_xy(axis, 1.0, 0.0);
+  satc_point_project(v, axis);
+  satc_assert_near(satc_point_get_x(v), 3.0);
+  satc_assert_near(satc_point_get_y(v), 0.0);
+
+  satc_point_set_xy(v, 3.0, 4.0);
+  satc_point_reflect(v, axis);
+  satc_assert_near(satc_point_get_x(v), 3.0);
+  satc_assert_near(satc_point_get_y(v), -4.0);
 }
 
 void satc_polygon_get_centroid_test () {
@@ -435,6 +446,36 @@ void satc_polygon_transform_test () {
     assert(satc_point_in_polygon(point_inside, polygon));
     assert(!satc_point_in_polygon(point_outside, polygon));
     satc_polygon_destroy(polygon);
+  }
+
+  {
+    // Rotated polygons still collide correctly under SAT.
+    satc_point_alloca_xy(pos_1, 0.0, 0.0);
+    satc_point_array_alloca(points_1, 4);
+    satc_point_alloca_xy(a_1, -10.0, -10.0);
+    satc_point_alloca_xy(b_1, 10.0, -10.0);
+    satc_point_alloca_xy(c_1, 10.0, 10.0);
+    satc_point_alloca_xy(d_1, -10.0, 10.0);
+    points_1[0] = a_1;
+    points_1[1] = b_1;
+    points_1[2] = c_1;
+    points_1[3] = d_1;
+    satc_polygon_t *polygon_1 = satc_polygon_create(pos_1, 4, points_1);
+    satc_polygon_set_angle(polygon_1, M_PI / 4.0);
+
+    satc_point_alloca_xy(pos_2, 6.0, 0.0);
+    satc_box_t *box_2 = satc_box_create(pos_2, 20.0, 20.0);
+    satc_polygon_t *polygon_2 = satc_box_to_polygon(box_2);
+
+    satc_response_t *response = satc_response_create();
+    bool collided = satc_test_polygon_polygon(polygon_1, polygon_2, response);
+    assert(collided);
+    assert(response->overlap > 0.0);
+
+    satc_response_destroy(response);
+    satc_polygon_destroy(polygon_2);
+    satc_box_destroy(box_2);
+    satc_polygon_destroy(polygon_1);
   }
 }
 

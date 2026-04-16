@@ -499,7 +499,7 @@ double *satc_point_normalize (double *p) {
  */
 double *satc_point_project (double *p, double *q) {
   double amt = satc_point_dot(p, q) / satc_point_len2(q);
-  satc_point_set_xy(p, amt * satc_point_get_x(p), amt * satc_point_get_y(p));
+  satc_point_set_xy(p, amt * satc_point_get_x(q), amt * satc_point_get_y(q));
   return p;
 }
 
@@ -515,7 +515,7 @@ double *satc_point_project (double *p, double *q) {
  */
 double *satc_point_project_n (double *p, double *q) {
   double amt = satc_point_dot(p, q);
-  satc_point_set_xy(p, amt * satc_point_get_x(p), amt * satc_point_get_y(p));
+  satc_point_set_xy(p, amt * satc_point_get_x(q), amt * satc_point_get_y(q));
   return p;
 }
 
