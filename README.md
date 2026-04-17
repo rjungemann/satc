@@ -17,9 +17,9 @@ Still, it should be handy for a vast number of use cases.
 It compiles with `-Wall` with no warnings, has 100% documentation coverage, and
 nearly 100% test coverage.
 
-It internally uses `alloca` for temporary variables, so they are allocated on
-the stack, which is quicker than allocating on the heap, and values are
-deallocated when they fall out of scope. Of course, any points, shapes, or
+It internally uses stack allocation helpers for temporary variables, so they are
+allocated on the stack, which is quicker than allocating on the heap, and
+values are deallocated when they fall out of scope. Of course, any points, shapes, or
 collision response objects you create will have to be deallocated. The docs
 explain when you are responsible for deallocating a particular object.
 
