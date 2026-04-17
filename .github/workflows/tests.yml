@@ -3,6 +3,9 @@ name: Cross-platform tests
 on:
   push:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test (${{ matrix.os }})
