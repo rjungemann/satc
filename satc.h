@@ -157,7 +157,7 @@ struct satc_response {
 #define satc_shape_get_type(s) s->type;
 
 /**
- * Creates an array of doubles, with undefined values. Since it uses `alloca`,
+ * Creates an array of doubles, with undefined values. It uses stack storage, so
  * the array will automatically be deallocated when it falls out of scope.
  *
  * This macro is considered a statement.
@@ -166,18 +166,19 @@ struct satc_response {
  * @param size the number of doubles in the array.
  */
 #define satc_double_array_alloca(name, size) \
-  double *name = NULL; \
-  name = (double *) alloca(sizeof(double) * size);
+  size_t name##_size = (size_t) (size); \
+  double name##_storage[(name##_size > 0) ? name##_size : 1]; \
+  double *name = name##_storage;
 
 /**
  * Creates an array of pointers to `double *` (a point), with undefined,
  * not-yet-allocated pointer values.
  *
- * Since it uses `alloca`, the array will automatically be deallocated when it
+ * It uses stack storage, so the array will automatically be deallocated when it
  * falls out of scope.
  *
  * The members will not be automatically deallocated when the array falls out
- * of scope, unless the members were allocated with `alloca` too!
+ * of scope, unless the members also use stack storage.
  *
  * This macro is considered a statement.
  *
@@ -185,14 +186,15 @@ struct satc_response {
  * @param size the number of pointers to points in the array.
  */
 #define satc_point_array_alloca(name, size) \
-  double **name = NULL; \
-  name = (double **) alloca(sizeof(double *) * size);
+  size_t name##_size = (size_t) (size); \
+  double *name##_storage[(name##_size > 0) ? name##_size : 1]; \
+  double **name = name##_storage;
 
 /**
  * Creates a pointer to an array of doubles (a point), with undefined `x` and
  * `y` values.
  *
- * Since it uses `alloca`, the point will automatically be deallocated when it
+ * It uses stack storage, so the point will automatically be deallocated when it
  * falls out of scope.
  *
  * This macro is considered a statement.
@@ -200,14 +202,14 @@ struct satc_response {
  * @param name the variable name for the point.
  */
 #define satc_point_alloca(name) \
-  double *name = NULL; \
-  name = (double *) alloca(sizeof(double) * 2);
+  double name##_storage[2]; \
+  double *name = name##_storage;
 
 /**
  * Creates a pointer to an array of doubles (a point), with defined `x` and `y`
  * values.
  *
- * Since it uses `alloca`, the point will automatically be deallocated when it
+ * It uses stack storage, so the point will automatically be deallocated when it
  * falls out of scope.
  *
  * This macro is considered a statement.
@@ -1094,8 +1096,8 @@ satc_polygon_t *satc_box_to_polygon (satc_box_t *box) {
   double *pos = box->pos;
   double w = box->w;
   double h = box->h;
-  double **points = NULL;
-  points = (double **) alloca(sizeof(double *) * 4);
+  double *points_storage[4];
+  double **points = points_storage;
   satc_point_alloca(nw);
   satc_point_alloca(ne);
   satc_point_alloca(se);
